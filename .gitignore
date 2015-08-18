@@ -1,6 +1,7 @@
 .ipynb_checkpoints
 *.py[co]
+*.log
+*.ipynb
 
 # specific files
 credentials.py
-*.ipynb

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from time import sleep
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
@@ -36,7 +37,7 @@ def select_term_required(func_to_wrap):
 class Loris(object):
 
     def __init__(self):
-        self.driver = webdriver.Chrome()
+        self.driver = webdriver.PhantomJS('phantomjs')
         self.is_logged_in = False
         self.term_selected = False
 
@@ -128,17 +129,22 @@ class Loris(object):
 if __name__ == '__main__':
     loris = Loris()
 
-    from credentials import STUDENT_NUM, PIN
-    loris.login(STUDENT_NUM, PIN)
-
     # fall 2015: 201509
     # winter 2016: 201601
     # spring 2016: 201605
-    loris.select_term('201509')
+    TERM = '201509'
+    CRN = 540
+
+    print "Attempting to register for CRN {0} in term {1}".format(CRN, TERM)
+
+    from credentials import STUDENT_NUM, PIN
+    loris.login(STUDENT_NUM, PIN)
+
+    loris.select_term(TERM)
 
     try:
-        loris.register_course(540)
+        loris.register_course(CRN)
     except RegistrationError as e:
         # only wanna quit if it fails as per usual
         loris.quit()
-        raise e
+        print "Registration Error: {0}".format(str(e))
