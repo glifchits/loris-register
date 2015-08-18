@@ -127,13 +127,16 @@ class Loris(object):
 
 
 if __name__ == '__main__':
+    import sys
+
     loris = Loris()
 
     # fall 2015: 201509
     # winter 2016: 201601
     # spring 2016: 201605
     TERM = '201509'
-    CRN = 540
+
+    CRN = sys.argv[1] if len(sys.argv) >= 2 else 540
 
     print "Attempting to register for CRN {0} in term {1}".format(CRN, TERM)
 
