@@ -37,7 +37,7 @@ def select_term_required(func_to_wrap):
 class Loris(object):
 
     def __init__(self):
-        self.driver = webdriver.PhantomJS('phantomjs')
+        self.driver = webdriver.PhantomJS('phantomjs', service_log_path='/tmp/ghostdriver.log')
         self.is_logged_in = False
         self.term_selected = False
 
