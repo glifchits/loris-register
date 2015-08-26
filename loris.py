@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from time import sleep
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.keys import Keys
@@ -70,6 +71,51 @@ class Loris(object):
         d.find_elements_by_css_selector('form')[1].submit()
         self.term_selected = True
 
+    def _get_courses_info_if_on_register_page(self):
+        d = self.driver
+        def get_course_info(c):
+            status = c.find_element_by_css_selector('td:nth-child(1)').text
+            reg_status, date_str = status.split(' on ')
+            date = datetime.strptime(date_str, "%b %d,%Y")
+            crn = c.find_element_by_css_selector('td:nth-child(3)').text
+            subj = c.find_element_by_css_selector('td:nth-child(4)').text
+            crscode = c.find_element_by_css_selector('td:nth-child(5)').text
+            title = c.find_element_by_css_selector('td:nth-child(10)').text
+            return {
+                'status': reg_status.strip(),
+                'date': date,
+                'crn': crn.strip(),
+                'subject': subj.strip(),
+                'course_code': crscode.strip(),
+                'title': title.strip()
+            }
+        courses = d.find_elements_by_css_selector(
+            'table[summary*="Current Schedule"] tbody tr:not(:first-child)'
+        )
+        return [get_course_info(c) for c in courses]
+
+    def _print_schedule_if_on_register_page(self, courses_info):
+        def sort(info):
+            return info['subject'] + info['course_code']
+
+        def print_course(c):
+            s = "{0:28} {1:2}{2:3} {3:6} {4}"
+            print s.format(
+                "{0} on {1}".format(c['status'], c['date'].strftime("%b %d, %Y")),
+                c['subject'], c['course_code'],
+                "(%s)" % c['crn'], c['title']
+            )
+
+        enrolled = []
+        rest = []
+        for c in courses_info:
+            if c['status'] == '**Enrolled**': enrolled.append(c)
+            else: rest.append(c)
+
+        for c in enrolled: print_course(c)
+        print ""
+        for c in rest: print_course(c)
+
     @select_term_required
     def register_course(self, crn=540):
         d = self.driver
@@ -88,46 +134,31 @@ class Loris(object):
             )
             raise RegistrationError(err.text)
 
-        courses = d.find_elements_by_css_selector(
-            'table[summary*="Current Schedule"] tbody tr:not(:first-child)'
-        )
-
-        def get_course_info(c):
-            status = c.find_element_by_css_selector('td:nth-child(1)').text
-            crn = c.find_element_by_css_selector('td:nth-child(3)').text
-            subj = c.find_element_by_css_selector('td:nth-child(4)').text
-            crscode = c.find_element_by_css_selector('td:nth-child(5)').text
-            title = c.find_element_by_css_selector('td:nth-child(10)').text
-            return {
-                'status': status,
-                'crn': crn,
-                'subject': subj,
-                'course_code': crscode,
-                'title': title
-            }
-
-        courses_info = [get_course_info(c) for c in courses]
+        courses_info = self._get_courses_info_if_on_register_page()
         course_info = [c for c in courses_info if c['crn'] == str(crn)]
         assert len(course_info) == 1, 'Course matching CRN {0} was not found'.format(crn)
         course_info = course_info[0]
 
         if '**Enrolled**' in course_info['status']:
             # hooray!
-            for c in courses_info:
-                s = "{0:15} {1:2}{2:3} ({3:4}) {4}"
-                print s.format(
-                    c['status'], c['subject'], c['course_code'],
-                    c['crn'], c['title']
-                )
+            self._print_schedule_if_on_register_page(courses_info)
+
         else:
             msg = 'Something went wrong for course {0}. Status is {1}'\
                     .format(crn, course_info['status'])
             raise RegistrationError(msg)
 
+    @select_term_required
+    def print_schedule(self):
+        d = self.driver
+        d.get('https://loris.wlu.ca/ssb_prod/bwskfreg.P_AltPin')
+        courses_info = self._get_courses_info_if_on_register_page()
+        self._print_schedule_if_on_register_page(courses_info)
 
 
 if __name__ == '__main__':
     import sys
+    from credentials import STUDENT_NUM, PIN
 
     loris = Loris()
 
@@ -136,14 +167,19 @@ if __name__ == '__main__':
     # spring 2016: 201605
     TERM = '201509'
 
-    CRN = sys.argv[1] if len(sys.argv) >= 2 else 540
-
-    print "Attempting to register for CRN {0} in term {1}".format(CRN, TERM)
-
-    from credentials import STUDENT_NUM, PIN
     loris.login(STUDENT_NUM, PIN)
-
     loris.select_term(TERM)
+
+    if len(sys.argv) == 1: # no args provided
+        print "Usage:"
+        print "  loris [CRN]  -- will attempt to register for given CRN\n"
+        loris.print_schedule()
+        loris.quit()
+        sys.exit()
+
+    CRN = sys.argv[1] if len(sys.argv) >= 2 else '540'
+
+    print "Attempting to register for CRN {0} in term {1}".format(CRN.strip(), TERM)
 
     try:
         loris.register_course(CRN)
